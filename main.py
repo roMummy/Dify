@@ -2,6 +2,7 @@ import json
 import re
 import tomllib
 import traceback
+import xml.etree.ElementTree as ET
 
 import aiohttp
 import filetype
@@ -24,6 +25,11 @@ class Dify(PluginBase):
 
     def __init__(self):
         super().__init__()
+        # 获取机器人 wxid
+        with open("resource/robot_stat.json", "rb") as f:
+            robot_stat = json.load(f)
+
+        self.wxid = robot_stat.get("wxid", None)
 
         with open("main_config.toml", "rb") as f:
             config = tomllib.load(f)
@@ -197,20 +203,41 @@ class Dify(PluginBase):
 
         return False
 
-    # @on_quote_message
-    # async def handle_quote(self, bot: WechatAPIClient, message: dict):
-    #     """收到引用消息时调用"""
-    #     if not self.enable:
-    #         return
+    @on_quote_message
+    async def handle_quote(self, bot: WechatAPIClient, message: dict):
+        """收到引用消息时调用"""
+        if not self.enable:
+            return
 
-    #     if not self.api_key:
-    #         await bot.send_at_message(message["FromWxid"], "\n你还没配置Dify API密钥！", [message["SenderWxid"]])
-    #         return False
+        if not self.api_key:
+            await bot.send_at_message(message["FromWxid"], "\n你还没配置Dify API密钥！", [message["SenderWxid"]])
+            return False
 
-    #     if await self._check_point(bot, message):
-    #         await self.dify(bot, message, message["Content"])
+        # logger.info(f"收到引用消息----{message}")
 
-    #     return False
+        # 引用消息没有@机器人 不回答
+        if not self._check_quote_at(message):
+            return
+
+        if await self._check_point(bot, message):
+            await self.dify(bot, message, message["Content"])
+
+        return False
+
+    def _check_quote_at(self, message: dict) -> bool:
+        """检查引用消息是否包含@机器人"""
+        logger.info("_check_quote_at")
+        root = ET.fromstring(message["MsgSource"])
+        ats = root.find("atuserlist").text if root.find("atuserlist") is not None else ""
+        if ats:
+            ats = ats.strip(",").split(",")
+        else:  
+            ats = []
+       
+        if self.wxid not in ats: 
+            return False
+        else:
+            return True
 
     async def dify(self, bot: WechatAPIClient, message: dict, query: str, files=None):
         if files is None:
