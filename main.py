@@ -265,14 +265,14 @@ class Dify(PluginBase):
 
         payload = {
             "inputs": {
-                # "room_id": message["FromWxid"],
+                "room_id": message["FromWxid"],
                 # "room_name": room_name if room_name is not None else '',
                 # "room_remark": room_remark if room_remark is not None else '',
-                # "user_id": message["SenderWxid"],
+                "user_id": message["SenderWxid"],
                 # "user_name": user_name if user_name is not None else '',
                 # "user_remark": user_remark if user_remark is not None else '',
                 # "user_alias": user_alias if user_alias is not None else '',
-                # "quote": str(message.get("Quote", {})),
+                "quote": str(message.get("Quote", {})),
             },
             "query": query,
             "response_mode": "blocking",
