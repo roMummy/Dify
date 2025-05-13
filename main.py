@@ -392,7 +392,7 @@ class Dify(PluginBase):
                     await handler(bot, message, json_data)
                 else:
                     logger.warning(f"未处理的类型: {json_data['type']}")
-                    await bot.send_at_message(message["FromWxid"], "\n收到未知类型的数据", [message["SenderWxid"]])
+                    raise json.JSONDecodeError("收到未知类型的数据", text, 0)
             else:
                 raise json.JSONDecodeError("不是有效的JSON格式", text, 0)
 
