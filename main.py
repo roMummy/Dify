@@ -385,7 +385,8 @@ class Dify(PluginBase):
             if isinstance(json_data, dict) and "type" in json_data:
                 # 使用字典映射处理不同类型的逻辑
                 type_handlers = {
-                    "address": self._handle_address_type
+                    "address": self._handle_address_type,
+                    "payment": self._handle_payment_type,
                 }
                 handler = type_handlers.get(json_data["type"])
                 if handler:
@@ -408,6 +409,15 @@ class Dify(PluginBase):
         xml_data = json_data.get("data")
         if xml_data:
             await bot.send_text_message(message.get("FromWxid"), xml_data, type=48)
+
+    async def _handle_payment_type(self, bot: WechatAPIClient, message: dict, json_data: dict):
+        """
+        处理 payment 类型数据
+        """
+        logger.debug(f"_handle_payment_type == {json_data}")
+        text = json_data.get("data")
+        if text:
+            await bot.send_at_message(message["FromWxid"], "\n" + text, [message["SenderWxid"]])
 
     async def download_file(self, url: str) -> bytes:
         async with aiohttp.ClientSession(proxy=self.http_proxy) as session:
