@@ -277,7 +277,6 @@ class Dify(PluginBase):
             "query": query,
             "response_mode": "blocking",
             "conversation_id": conversation_id,
-            # "conversation_id": "",
             "user": message["FromWxid"],
             "files": files,
             "auto_generate_name": False,
@@ -371,8 +370,44 @@ class Dify(PluginBase):
 
         pattern = r'\[[^\]]+\]\(https?:\/\/[^\s\)]+\)'
         text = re.sub(pattern, '', text)
+        logger.debug(f"===={text}")
+
         if text:
+            await self._dify_text_process(bot, message=message, text=text)
+
+    async def _dify_text_process(self, bot: WechatAPIClient, message: dict, text: str):
+        """
+        用来处理dify返回的特定数据
+        ={"type":"address","data":"<msg><location x=\"29.490622\" y=\"106.522738\" scale=\"15\" label=\"2025-05-13 14:48:36\" maptype=\"roadmap\" poiname=\"东风纳米/纳米01\" poiid=\"qqmap_10634204390484940395\" buildingId=\"\" floorName=\"\" poiCategoryTips=\"房产小区:产业园区\" poiBusinessHour=\"\" poiPhone=\"\" poiPriceTips=\"\" isFromPoiList=\"true\" adcode=\"500112\" cityname=\"重庆市\" fromusername=\"wxid_1s8pwoa9rl6f21\" /><\/msg>"}
+        """
+        try:
+            json_data = json.loads(text)
+            if isinstance(json_data, dict) and "type" in json_data:
+                # 使用字典映射处理不同类型的逻辑
+                type_handlers = {
+                    "address": self._handle_address_type
+                }
+                handler = type_handlers.get(json_data["type"])
+                if handler:
+                    await handler(bot, message, json_data)
+                else:
+                    logger.warning(f"未处理的类型: {json_data['type']}")
+                    await bot.send_at_message(message["FromWxid"], "\n收到未知类型的数据", [message["SenderWxid"]])
+            else:
+                raise json.JSONDecodeError("不是有效的JSON格式", text, 0)
+
+        except json.JSONDecodeError:
+            # 解析失败 说明是普通文本
             await bot.send_at_message(message["FromWxid"], "\n" + text, [message["SenderWxid"]])
+
+    async def _handle_address_type(self, bot: WechatAPIClient, message: dict, json_data: dict):
+        """
+        处理 address 类型的数据
+        """
+        logger.debug(f"_handle_address_type == {json_data}")
+        xml_data = json_data.get("data")
+        if xml_data:
+            await bot.send_text_message(message.get("FromWxid"), xml_data, type=48)
 
     async def download_file(self, url: str) -> bytes:
         async with aiohttp.ClientSession(proxy=self.http_proxy) as session:
