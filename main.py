@@ -385,39 +385,27 @@ class Dify(PluginBase):
             if isinstance(json_data, dict) and "type" in json_data:
                 # 使用字典映射处理不同类型的逻辑
                 type_handlers = {
-                    "address": self._handle_address_type,
-                    "payment": self._handle_payment_type,
+                    "address": self._handle_location_type,
                 }
                 handler = type_handlers.get(json_data["type"])
                 if handler:
                     await handler(bot, message, json_data)
+                    return
                 else:
-                    logger.warning(f"未处理的类型: {json_data['type']}")
-                    raise json.JSONDecodeError("收到未知类型的数据", text, 0)
-            else:
-                raise json.JSONDecodeError("不是有效的JSON格式", text, 0)
-
+                    text = json_data.get("data", "")
         except json.JSONDecodeError:
-            # 解析失败 说明是普通文本
-            await bot.send_at_message(message["FromWxid"], "\n" + text, [message["SenderWxid"]])
+            pass
 
-    async def _handle_address_type(self, bot: WechatAPIClient, message: dict, json_data: dict):
+        await bot.send_at_message(message["FromWxid"], "\n" + text, [message["SenderWxid"]])
+
+    async def _handle_location_type(self, bot: WechatAPIClient, message: dict, json_data: dict):
         """
-        处理 address 类型的数据
+        处理 定位 数据
         """
         logger.debug(f"_handle_address_type == {json_data}")
         xml_data = json_data.get("data")
         if xml_data:
             await bot.send_text_message(message.get("FromWxid"), xml_data, type=48)
-
-    async def _handle_payment_type(self, bot: WechatAPIClient, message: dict, json_data: dict):
-        """
-        处理 payment 类型数据
-        """
-        logger.debug(f"_handle_payment_type == {json_data}")
-        text = json_data.get("data")
-        if text:
-            await bot.send_at_message(message["FromWxid"], "\n" + text, [message["SenderWxid"]])
 
     async def download_file(self, url: str) -> bytes:
         async with aiohttp.ClientSession(proxy=self.http_proxy) as session:
